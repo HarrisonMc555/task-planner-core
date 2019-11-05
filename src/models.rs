@@ -4,6 +4,6 @@ use chrono::naive::NaiveDateTime;
 pub struct Task {
     pub id: i32,
     pub title: String,
-    pub due_date: NaiveDateTime,
+    pub due_date: Option<NaiveDateTime>,
     pub completed: bool,
 }
