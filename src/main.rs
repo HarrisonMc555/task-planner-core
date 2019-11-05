@@ -25,14 +25,9 @@ pub fn establish_connection() -> PgConnection {
 }
 
 fn main() {
-    // println!("{:?}", NaiveDateTime::parse_from_str("2015-09-05 23:56:04", "%Y-%m-%d %H:%M:%S"));
-    // println!("{:?}", NaiveDateTime::parse_from_str("2015-09-05", "%Y-%m-%d %H:%M:%S"));
-    insert_task_from_user();
+    // insert_task_from_user();
     display_tasks();
-}
-
-fn display_tasks() {
-    display_up_to_n_tasks(10);
+    complete_task();
 }
 
 fn insert_task_from_user() {
@@ -71,6 +66,23 @@ fn insert_task_from_user() {
     println!("\nSaved task \"{}\" with id {}", title, task.id);
 }
 
+fn complete_task() {
+    use self::schema::tasks::dsl::{completed, tasks};
+
+    let mut id = String::new();
+    println!("Enter the ID of the task to complete");
+    stdin().read_line(&mut id).unwrap();
+    let id = &id[..id.len() - 1];
+    let id = id.parse::<i32>().expect("Invalid ID");
+    let connection = establish_connection();
+
+    let task = diesel::update(tasks.find(id))
+        .set(completed.eq(true))
+        .get_result::<Task>(&connection)
+        .expect(&format!("Unable to find task {}", id));
+    println!("Completed task {}", task.title);
+}
+
 #[cfg(not(windows))]
 const EOF: &str = "CTRL+D";
 
@@ -92,11 +104,17 @@ pub fn create_task<'a>(
         .expect("Error saving new task")
 }
 
+fn display_tasks() {
+    display_up_to_n_tasks(10);
+}
+
 fn display_up_to_n_tasks(max_num_tasks: i64) {
     use self::schema::tasks::dsl::*;
 
     let connection = establish_connection();
     let results = tasks
+        .order_by(due_date)
+        .then_order_by(title)
         .limit(max_num_tasks)
         .load::<Task>(&connection)
         .expect("Error loading tasks");
@@ -108,6 +126,9 @@ fn display_up_to_n_tasks(max_num_tasks: i64) {
             .due_date
             .map(|d| format!(" (due {})", d.to_string()))
             .unwrap_or_default();
-        println!("[{}] {}{}", checkbox, task.title, date_string);
+        println!(
+            "[{}] #{: <3} {}{}",
+            checkbox, task.id, task.title, date_string
+        );
     }
 }
